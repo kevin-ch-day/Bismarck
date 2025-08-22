@@ -34,6 +34,9 @@ CHECK_ROOT=true
 # Whether to enable verbose adb command logging
 VERBOSE_LOG=false
 
+# Whether to generate derived CSV views from the master inventory
+GENERATE_DERIVED=false
+
 #####################
 # APP SIGNATURES
 #####################
@@ -69,10 +72,15 @@ SOCIAL_APPS=(
     "org.thoughtcrime.securesms:Signal"
 )
 
+# Heuristic keywords for social app detection
+SOCIAL_KEYWORDS=(
+    facebook instagram twitter tiktok snapchat whatsapp telegram reddit linkedin discord pinterest wechat line vk signal
+)
+
 #####################
 # ENVIRONMENT CHECKS
 #####################
 # Export so all scripts can reuse
 export PROJECT_ROOT LOGDIR OUTDIR DOWNLOADS
-export FILTER_SOCIAL HASH_APKS PULL_APKS CHECK_ROOT VERBOSE_LOG
-export SOCIAL_APPS
+export FILTER_SOCIAL HASH_APKS PULL_APKS CHECK_ROOT VERBOSE_LOG GENERATE_DERIVED
+export SOCIAL_APPS SOCIAL_KEYWORDS

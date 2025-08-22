@@ -48,7 +48,8 @@ list_devices() {
     if [ ${#dev_arr[@]} -eq 1 ]; then
         DEVICE="${dev_arr[0]}"
     else
-        read -r -p "[?] Select a device number: " choice
+        printf "[?] Select a device number: " >&2
+        read -r choice
         idx=$((choice-1))
         if [ -z "${dev_arr[$idx]}" ]; then
             echo ""
