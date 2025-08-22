@@ -32,12 +32,23 @@ check_adb() {
 }
 
 init_logs() {
-    mkdir -p "$LOGDIR" "$OUTDIR" "$TMPDIR"
+    mkdir -p "$LOGDIR" "$OUTDIR"
     rm -f "$LOGDIR"/*.log 2>/dev/null
 
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     LOGFILE="$LOGDIR/run_$TIMESTAMP.log"
     export LOGFILE
+
+    # collect any adb server logs
+    if [ -d "$PROJECT_ROOT/tmp" ]; then
+        mv "$PROJECT_ROOT"/tmp/adb*.log "$LOGDIR"/ 2>/dev/null || true
+        rm -rf "$PROJECT_ROOT/tmp"
+    fi
+    ADB_LOG="/tmp/adb.$(id -u).log"
+    if [ -f "$ADB_LOG" ]; then
+        mv "$ADB_LOG" "$LOGDIR/adb_$TIMESTAMP.log" 2>/dev/null || true
+    fi
+
     log_info "Log file initialized at $LOGFILE"
 }
 
@@ -117,7 +128,7 @@ show_menu() {
 summary() {
     echo ""
     print_section "Run Summary"
-    find "$OUTDIR" -maxdepth 1 -type f -printf '%f %s\n' | numfmt --to=iec --field=2
+    find "$OUTDIR" -type f -printf '%P %s\n' | numfmt --to=iec --field=2
 }
 
 #####################

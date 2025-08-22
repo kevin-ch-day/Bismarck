@@ -11,6 +11,14 @@ source "$SCRIPT_DIR/list_devices.sh"
 source "$SCRIPT_DIR/utils/output_utils.sh"
 source "$SCRIPT_DIR/utils/display_utils.sh"
 
+# Build associative array of package -> pretty name
+declare -A SOCIAL_MAP
+for entry in "${SOCIAL_APPS[@]}"; do
+    pkg="${entry%%:*}"
+    name="${entry#*:}"
+    SOCIAL_MAP[$pkg]="$name"
+done
+
 DEVICE_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
@@ -24,47 +32,46 @@ while [[ ${1-} ]]; do
     esac
 done
 
+DEVICE=""
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
 DEVICE_OUT="$OUTDIR/$DEVICE"
-mkdir -p "$DEVICE_OUT/apks" "$TMPDIR"
+mkdir -p "$DEVICE_OUT/apks"
 SOCIALFILE="$DEVICE_OUT/social_apps_found.csv"
-write_csv_header "$SOCIALFILE" "Package,APK_Path,Detected,SHA256"
+write_csv_header "$SOCIALFILE" "Package,App_Name,Version,APK_Path,SHA256"
 
-TMPLIST="$TMPDIR/${DEVICE}_pkgs.txt"
-adb -s "$DEVICE" shell pm list packages -f 2>/dev/null | sed 's/^package://g' > "$TMPLIST"
+APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
+if [ ! -f "$APK_LIST_FILE" ]; then
+    TMP_RAW=$(mktemp)
+    adb -s "$DEVICE" shell pm list packages -f -3 2>/dev/null > "$TMP_RAW"
+    write_csv_header "$APK_LIST_FILE" "APK_Path,Package"
+    awk -F= '{print $1 "," $2}' "$TMP_RAW" | sed 's/^package://g' | sort -t, -k2,2 >> "$APK_LIST_FILE"
+    rm -f "$TMP_RAW"
+fi
 
+TMP_SOCIAL=$(mktemp)
 found=0
 while IFS=, read -r APK_PATH PKG; do
-    DETECTED="N"
-    for s in "${SOCIAL_APPS[@]}"; do
-        if [[ "$PKG" == "$s" ]]; then
-            DETECTED="Y"
-            break
-        fi
-    done
-
-    if [[ "$DETECTED" == "Y" ]]; then
-        hash=$(adb -s "$DEVICE" shell sha256sum "$APK_PATH" 2>/dev/null | awk '{print $1}')
-        append_csv_row "$SOCIALFILE" "$PKG,$APK_PATH,✔,$hash"
-        print_detected "$PKG"
+    if [[ -n "${SOCIAL_MAP[$PKG]:-}" ]]; then
+        NAME="${SOCIAL_MAP[$PKG]}"
+        VERSION=$(adb -s "$DEVICE" shell dumpsys package "$PKG" | grep -m1 versionName | awk -F= '{print $2}')
+        paths=$(adb -s "$DEVICE" shell pm path "$PKG" 2>/dev/null | sed 's/^package://g')
+        while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            hash=$(adb -s "$DEVICE" shell sha256sum "$path" 2>/dev/null | awk '{print $1}')
+            append_csv_row "$TMP_SOCIAL" "$PKG,$NAME,${VERSION:-N/A},$path,$hash"
+            if [ "$PULL_APKS" = true ]; then
+                adb -s "$DEVICE" pull "$path" "$DEVICE_OUT/apks/$(basename "$path")" >/dev/null 2>&1 || true
+            fi
+        done <<< "$paths"
+        print_detected "$NAME ($PKG)"
         found=1
-        if [ "$PULL_APKS" = true ]; then
-            adb -s "$DEVICE" pull "$APK_PATH" "$DEVICE_OUT/apks/${PKG}.apk" >/dev/null 2>&1 || true
-        fi
-    else
-        if echo "$PKG" | grep -qi -E 'facebook|instagram|tiktok|snap|twitter|whatsapp|telegram|discord'; then
-            hash=$(adb -s "$DEVICE" shell sha256sum "$APK_PATH" 2>/dev/null | awk '{print $1}')
-            append_csv_row "$SOCIALFILE" "$PKG,$APK_PATH,?,$hash"
-            print_unknown "$PKG"
-            found=1
-        fi
     fi
+done < <(tail -n +2 "$APK_LIST_FILE")
 
-done < <(awk -F'=' '{print $1","$2}' "$TMPLIST")
-
-rm -f "$TMPLIST"
+sort -t, -k1,1 "$TMP_SOCIAL" >> "$SOCIALFILE"
+rm -f "$TMP_SOCIAL"
 
 if [ $found -eq 0 ]; then
     print_none
