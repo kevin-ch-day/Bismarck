@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_motorola_apps.sh
 # Purpose: Generate report of Motorola packages for a connected device.
-# Output: <out_dir>/motorola_apps.csv
+# Output: <run_dir>/reports/motorola_apps.csv
 
 set -euo pipefail
 
@@ -40,19 +40,21 @@ fi
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-# Resolve output directory
-if [[ -n "$OUT_ARG" ]]; then
-    DEVICE_OUT="$OUT_ARG"
-else
-    DEVICE_OUT="$OUTDIR/$DEVICE/reports"
-fi
-mkdir -p "$DEVICE_OUT"
+# Resolve output directory (run root)
+ROOT_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$ROOT_OUT/reports"
+mkdir -p "$REPORT_DIR"
 
-APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
-MOTO_FILE="$DEVICE_OUT/motorola_apps.csv"
+APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
+MOTO_FILE="$REPORT_DIR/motorola_apps.csv"
+
+if [[ ! -f "$APK_LIST_FILE" ]]; then
+    status_error "Required APK list not found: $APK_LIST_FILE"
+    exit 1
+fi
 
 status_info "Scanning for Motorola packages on device: $DEVICE"
-TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
+TMP_FILE=$(mktemp "$REPORT_DIR/tmp.XXXXXX")
 count=0
 
 while IFS=, read -r pkg apk_path; do
