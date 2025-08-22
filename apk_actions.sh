@@ -18,8 +18,8 @@ list_apks() {
         return 1
     fi
 
-    write_csv_header "$OUTFILE" "APK_Path,Package"
-    awk -F'=' '{print $1 "," $2}' "$TMP_RAW" | sed 's/^package://g' | sort -t, -k2,2 >> "$OUTFILE"
+    write_csv_header "$OUTFILE" "Package,APK_Path"
+    awk -F'=' '{print $2 "," $1}' "$TMP_RAW" | sed 's/^package://g' | sort -t, -k1,1 >> "$OUTFILE"
     rm -f "$TMP_RAW"
 
     COUNT=$(($(wc -l < "$OUTFILE") - 1))
@@ -62,7 +62,7 @@ hash_apks() {
     log_info "Computing SHA-256 hashes..."
     write_csv_header "$MANIFEST" "Package,APK_Path,SHA256"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r APK_PATH PKG_NAME; do
+    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
         HASH=$(adb -s "$DEVICE" shell sha256sum "$APK_PATH" 2>/dev/null | awk '{print $1}')
         if [ -n "$HASH" ]; then
             append_csv_row "$MANIFEST" "$PKG_NAME,$APK_PATH,$HASH"
@@ -83,7 +83,7 @@ apk_metadata() {
     log_info "Extracting version & permissions..."
     write_csv_header "$METADATAFILE" "Package,Version,Permissions"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r APK_PATH PKG_NAME; do
+    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
         VERSION=$(adb -s "$DEVICE" shell dumpsys package "$PKG_NAME" | grep -m1 versionName | awk -F= '{print $2}')
         PERMS=$(adb -s "$DEVICE" shell dumpsys package "$PKG_NAME" | grep -E "permission " | awk '{print $1}' | tr '\n' ';')
         append_csv_row "$METADATAFILE" "$PKG_NAME,${VERSION:-N/A},\"$PERMS\""
@@ -101,7 +101,7 @@ running_processes() {
     log_info "Checking running processes..."
     write_csv_header "$RUNNINGFILE" "Package,PID"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r APK_PATH PKG_NAME; do
+    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
         PID=$(adb -s "$DEVICE" shell pidof "$PKG_NAME" 2>/dev/null)
         [ -n "$PID" ] && append_csv_row "$RUNNINGFILE" "$PKG_NAME,$PID"
     done

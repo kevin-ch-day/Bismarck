@@ -14,7 +14,7 @@ TMPFILE=$(mktemp)
 
 echo "Package,APK_Path,Source,Type,Category,Flags" > "$TMPFILE"
 
-grep -v '^$' "$INPUT" | while IFS=, read -r APK_PATH PKG_NAME; do
+tail -n +2 "$INPUT" | while IFS=, read -r PKG_NAME APK_PATH; do
     # Skip broken rows
     if [[ -z "$APK_PATH" || -z "$PKG_NAME" ]]; then
         continue
