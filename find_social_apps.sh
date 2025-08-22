@@ -41,7 +41,7 @@ status_info "Using APK list: $APK_LIST_FILE"
 # Build hash map from apk_hashes.csv
 declare -A HASH_MAP
 if [[ -f "$HASH_FILE" ]]; then
-    while IFS=, read -r pkg sha src; do
+    while IFS=, read -r pkg apk_path sha; do
         [[ "$pkg" == "Package" ]] && continue
         HASH_MAP[$pkg]="$sha"
     done < "$HASH_FILE"
