@@ -14,7 +14,7 @@ list_devices() {
         return 0
     fi
 
-    if [ -n "$DEVICE" ]; then
+    if [ -n "${DEVICE:-}" ]; then
         echo "$DEVICE"
         return 0
     fi
