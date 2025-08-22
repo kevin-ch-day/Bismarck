@@ -25,10 +25,13 @@ done
 
 setup_logging() {
     DEVICE_OUT="$OUTDIR/$DEVICE"
-    mkdir -p "$DEVICE_OUT"
-    LOG_FILE="$DEVICE_OUT/run_$(date +%Y%m%d_%H%M%S).log"
-    exec > >(tee -a "$LOG_FILE") 2>&1
+    REPORTS_DIR="$DEVICE_OUT/reports"
+    mkdir -p "$REPORTS_DIR"
+    LOG_FILE="$REPORTS_DIR/run.log"
+    SUMMARY_FILE="$REPORTS_DIR/run_summary.txt"
+    exec > >(tee "$LOG_FILE") 2>&1
     status_info "Logs: $LOG_FILE"
+    status_info "Summary: $SUMMARY_FILE"
 }
 
 run_apk_list()      { status_info "Generating APK list"; "$SCRIPT_DIR/steps/generate_apk_list.sh" -d "$DEVICE"; }
@@ -63,7 +66,7 @@ run_full_scan() {
     run_running_apps
     run_social_scan
     run_motorola_scan
-    "$SCRIPT_DIR/steps/generate_manifest.sh" -d "$DEVICE" -l "$LOG_FILE"
+    "$SCRIPT_DIR/steps/generate_manifest.sh" -d "$DEVICE" -l "$LOG_FILE" -s "$SUMMARY_FILE"
     status_ok "Full scan complete. Reports saved to $DEVICE_OUT"
 }
 
