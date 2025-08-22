@@ -74,7 +74,7 @@ hash_apks() {
     done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
     if command -v validate_csv >/dev/null 2>&1; then
-        validate_csv "$MANIFEST" "Package,APK_Path,SHA256"
+        validate_csv "$MANIFEST" "Package,APK_Path,SHA256" || return 1
     fi
     log_info "Hashed $count APKs → $MANIFEST"
 }
@@ -96,7 +96,7 @@ apk_metadata() {
         ((count++))
     done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    validate_csv "$METADATAFILE" "Package,Version,Permissions"
+    validate_csv "$METADATAFILE" "Package,Version,Permissions" || return 1
     log_info "Metadata saved for $count packages → $METADATAFILE"
 }
 
@@ -118,6 +118,6 @@ running_processes() {
         fi
     done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    validate_csv "$RUNNINGFILE" "Package,PID"
+    validate_csv "$RUNNINGFILE" "Package,PID" || return 1
     log_info "Logged $count running apps → $RUNNINGFILE"
 }

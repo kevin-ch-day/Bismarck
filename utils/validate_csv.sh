@@ -15,8 +15,12 @@ validate_csv() {
         echo "validate_csv: header mismatch in $file" >&2
         return 1
     fi
-    awk -F, 'NR==2{prev=tolower($1);next} NR>2{cur=tolower($1); if(cur<prev){exit 1} prev=cur}' "$file" || {
+    awk -F, 'NR>1 {if($1=="") next; cur=tolower($1); if(prev && cur<prev){exit 1}; prev=cur}' "$file" || {
         echo "validate_csv: Package column not sorted in $file" >&2
+        return 1
+    }
+    awk -F, 'NR>1 && $1=="" {exit 1}' "$file" || {
+        echo "validate_csv: blank Package in $file" >&2
         return 1
     }
 }
