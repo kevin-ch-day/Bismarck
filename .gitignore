@@ -1,0 +1,7 @@
+# Ignore logs and temp artifacts (recursively), keep .gitkeep
+logs/**
+!logs/.gitkeep
+
+tmp/**
+!tmp/.gitkeep
+
