@@ -14,10 +14,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -29,10 +34,12 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
-APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
-SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
+HASH_FILE="$REPORT_DIR/apk_hashes.csv"
+SOCIAL_FILE="$REPORT_DIR/social_apps_found.csv"
 SOURCE_CMD="adb -s $DEVICE shell pm list packages -f"
 
 status_info "Scanning for social apps on device: $DEVICE"
@@ -41,7 +48,7 @@ status_info "Using APK list: $APK_LIST_FILE"
 # Build hash map from apk_hashes.csv
 declare -A HASH_MAP
 if [[ -f "$HASH_FILE" ]]; then
-    while IFS=, read -r pkg sha src; do
+    while IFS=, read -r pkg sha _; do
         [[ "$pkg" == "Package" ]] && continue
         HASH_MAP[$pkg]="$sha"
     done < "$HASH_FILE"
@@ -138,18 +145,18 @@ while IFS=, read -r pkg apk_path; do
     fi
 done < <(tail -n +2 "$APK_LIST_FILE")
 
+write_csv_header "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 if [[ $count -gt 0 ]]; then
-    write_csv_header "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
     sort -f "$TMP_FILE" >> "$SOCIAL_FILE"
-    validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
     status_ok "Found $count social apps"
     status_info "Exact: $exact_count | Preloaded: $preload_count | Keyword: $keyword_count"
     status_info "Results saved to $SOCIAL_FILE"
     status_info "Report preview:"
     column -t -s, "$SOCIAL_FILE" | head
 else
-    print_none
+    status_warn "No social apps found"
 fi
+validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 
 status_info "Processed $total_scanned packages (excluding system packages)"
 

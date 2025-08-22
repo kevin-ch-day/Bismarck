@@ -13,6 +13,7 @@ source "$SCRIPT_DIR/utils/display/status.sh"
 LOG_FILE=""
 SUMMARY_FILE=""
 DEVICE_ARG=""
+OUT_ARG=""
 
 while [[ ${1-} ]]; do
     case "$1" in
@@ -26,6 +27,10 @@ while [[ ${1-} ]]; do
             ;;
         -s|--summary)
             SUMMARY_FILE="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -42,18 +47,21 @@ fi
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-META_FILE="$DEVICE_OUT/apk_metadata.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
-RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
-SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+
+APK_LIST="$REPORT_DIR/apk_list.csv"
+META_FILE="$REPORT_DIR/apk_metadata.csv"
+HASH_FILE="$REPORT_DIR/apk_hashes.csv"
+RUNNING_FILE="$REPORT_DIR/running_apps.csv"
+SOCIAL_FILE="$REPORT_DIR/social_apps_found.csv"
 
 if [[ -z "$LOG_FILE" ]]; then
-    LOG_FILE="$DEVICE_OUT/reports/run.log"
+    LOG_FILE="$REPORT_DIR/run.log"
 fi
 if [[ -z "$SUMMARY_FILE" ]]; then
-    SUMMARY_FILE="$DEVICE_OUT/reports/run_summary.txt"
+    SUMMARY_FILE="$REPORT_DIR/run_summary.txt"
 fi
 mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$SUMMARY_FILE")"
 
