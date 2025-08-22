@@ -3,12 +3,17 @@
 # Purpose: Menu rendering helpers with back-compat aliases
 
 # Back-compat aliases
-show_menu_header() { _menu_header; }
+show_menu_header() { _menu_header "$@"; }
 show_menu_option() { _menu_option "$@"; }
 show_menu_footer() { _menu_footer; }
 
 _menu_header() {
+  local device="$1"
   echo -e "${CYAN}${BOLD}┌──────────────── Android Tool Menu ────────────────┐${RESET}"
+  if [[ -n "$device" ]]; then
+    printf "${CYAN}${BOLD}│${RESET} Device: ${WHITE}%s${RESET}\n" "$device"
+    echo -e "${CYAN}${BOLD}├───────────────────────────────────────────────────┤${RESET}"
+  fi
 }
 _menu_option() {
   local num="$1"; shift
@@ -21,7 +26,7 @@ _menu_footer() {
 }
 
 print_menu() {
-  _menu_header
+  _menu_header "$1"
   _menu_option 1 "📦 List all APKs"
   _menu_option 2 "🌐 Scan social apps"
   _menu_option 3 "📱 List Motorola apps"

@@ -1,6 +1,7 @@
 #!/bin/bash
 # run.sh
-# Orchestrated full device scan
+# Entry point: perform environment checks then either launch the interactive
+# menu or orchestrate a full device scan
 
 set -euo pipefail
 
@@ -11,12 +12,34 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 source "$SCRIPT_DIR/utils/validate_csv.sh"
 
+usage() {
+    echo "Usage: $0 [-d DEVICE] [--menu]" >&2
+    exit 1
+}
+
+check_prereqs() {
+    for cmd in adb sha256sum; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            status_error "Missing required command: $cmd"
+            exit 1
+        fi
+    done
+}
+
 DEVICE_ARG=""
+MENU=false
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
             shift 2
+            ;;
+        -m|--menu)
+            MENU=true
+            shift
+            ;;
+        -h|--help)
+            usage
             ;;
         *)
             shift
@@ -24,9 +47,16 @@ while [[ ${1-} ]]; do
     esac
 done
 
-if [[ -z "$DEVICE_ARG" ]]; then
-    echo "Error: device argument (-d) required" >&2
-    exit 1
+check_prereqs
+
+# Default to menu if no device was supplied
+if $MENU || [[ -z "$DEVICE_ARG" ]]; then
+    if [[ -n "$DEVICE_ARG" ]]; then
+        "$SCRIPT_DIR/main_menu.sh" --device "$DEVICE_ARG"
+    else
+        "$SCRIPT_DIR/main_menu.sh"
+    fi
+    exit $?
 fi
 
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
