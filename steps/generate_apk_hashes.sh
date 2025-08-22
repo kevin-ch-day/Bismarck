@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/list_devices.sh"
 source "$SCRIPT_DIR/utils/output_utils.sh"
 source "$SCRIPT_DIR/utils/validate_csv.sh"
+source "$SCRIPT_DIR/utils/display/base.sh"
+source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
 while [[ ${1-} ]]; do
@@ -28,8 +30,9 @@ DEVICE_OUT="$OUTDIR/$DEVICE"
 APK_LIST="$DEVICE_OUT/apk_list.csv"
 HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
 
+status_info "Hashing APKs for $DEVICE"
 write_csv_header "$HASH_FILE" "Package,SHA256,HashSource"
-
+count=0
 tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
     hash=$(adb -s "$DEVICE" shell sha256sum "$apk_path" 2>/dev/null | awk '{print $1}')
     src=device
@@ -42,6 +45,9 @@ tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
         rm -f "$tmp"
     fi
     append_csv_row "$HASH_FILE" "$pkg,${hash},$src"
+    status_info "Hashed $pkg"
+    ((count++))
 done
 
 validate_csv "$HASH_FILE" "Package,SHA256,HashSource"
+status_ok "Wrote $count hashes to $HASH_FILE"
