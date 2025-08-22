@@ -1,0 +1,17 @@
+[2025-08-21 20:26:23] [INFO] Log file initialized at /home/linuxadmin/Documents/Projects/Bismarck/logs/run_20250821_202623.log
+[2025-08-21 20:26:24] [INFO] Connected to ZY22JK89DR (motorola moto g 5G - 2024, Android 15 SDK 35)
+[2025-08-21 20:26:35] [INFO] Retrieving APK list...
+[2025-08-21 20:26:35] [INFO] Found 503 APKs → /home/linuxadmin/Documents/Projects/Bismarck/output/apk_list.csv
+[+] Parsed APK list saved to /home/linuxadmin/Documents/Projects/Bismarck/output/apk_inventory.csv
+    Total packages : 431
+    System apps    : 138
+    Vendor apps    : 6
+    Product apps   : 259
+    User apps      : 0
+    Social apps    : 3
+[2025-08-21 20:26:37] [INFO] Normalized inventory saved → /home/linuxadmin/Documents/Projects/Bismarck/output/apk_inventory.csv
+[2025-08-21 20:26:42] [INFO] Filtering social media apps...
+[2025-08-21 20:26:42] [WARN] No social media apps found.
+[2025-08-21 20:26:47] [INFO] Computing SHA-256 hashes...
+[2025-08-21 20:26:47] [INFO] Hash manifest saved → /home/linuxadmin/Documents/Projects/Bismarck/output/apk_hashes.csv
+[2025-08-21 20:34:42] [INFO] Exiting.
