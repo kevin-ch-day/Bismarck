@@ -1,7 +1,13 @@
-# Ignore logs and temp artifacts (recursively), keep .gitkeep
+# Logs / temp / outputs
 logs/**
 !logs/.gitkeep
 
 tmp/**
 !tmp/.gitkeep
 
+output/**
+!output/.gitkeep
+
+# Local APK drops and symlinks
+downloads
+*.apk
