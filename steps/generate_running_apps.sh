@@ -33,14 +33,14 @@ RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
 status_info "Checking running processes on $DEVICE"
 write_csv_header "$RUNNING_FILE" "Package,PID"
 count=0
-tail -n +2 "$APK_LIST" | while IFS=, read -r pkg _; do
+while IFS=, read -r pkg _; do
     pid=$(adb -s "$DEVICE" shell pidof "$pkg" 2>/dev/null | tr -d '\r')
     if [[ -n "$pid" ]]; then
         append_csv_row "$RUNNING_FILE" "$pkg,$pid"
         status_info "$pkg is running (PID $pid)"
         ((count++))
     fi
-done
+done < <(tail -n +2 "$APK_LIST")
 
 validate_csv "$RUNNING_FILE" "Package,PID"
 status_ok "Logged $count running packages to $RUNNING_FILE"
