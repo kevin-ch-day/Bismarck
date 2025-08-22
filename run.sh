@@ -98,10 +98,16 @@ select_device() {
 #####################
 show_menu() {
     while true; do
+        if declare -f print_section >/dev/null; then
+            print_section "Android Tool Menu"
+        else
+            echo "Android Tool Menu"
+            echo "-------------------"
+        fi
+
         if declare -f print_menu >/dev/null; then
             print_menu
         else
-            echo "===== Android Tool Menu ====="
             echo "1) List all APKs"
             echo "2) Filter social apps"
             echo "3) Compute SHA-256 hashes"
