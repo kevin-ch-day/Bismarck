@@ -41,7 +41,7 @@ HASH_FILE="$REPORT_DIR/apk_hashes.csv"
 status_info "Hashing APKs for $DEVICE"
 write_csv_header "$HASH_FILE" "Package,SHA256,HashSource"
 count=0
-tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
+while IFS=, read -r pkg apk_path; do
     hash=$(adb -s "$DEVICE" shell sha256sum "$apk_path" 2>/dev/null | awk '{print $1}')
     src=device
     if [[ -z "$hash" ]]; then
@@ -55,7 +55,7 @@ tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
     append_csv_row "$HASH_FILE" "$pkg,${hash},$src"
     status_info "Hashed $pkg"
     ((count++))
-done
+done < <(tail -n +2 "$APK_LIST")
 
 validate_csv "$HASH_FILE" "Package,SHA256,HashSource"
 status_ok "Wrote $count hashes to $HASH_FILE"

@@ -41,7 +41,7 @@ META_FILE="$REPORT_DIR/apk_metadata.csv"
 status_info "Extracting metadata from packages on $DEVICE"
 write_csv_header "$META_FILE" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
 count=0
-tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
+while IFS=, read -r pkg apk_path; do
     dump=$(adb -s "$DEVICE" shell dumpsys package "$pkg")
     version=$(awk -F= '/versionName=/{print $2;exit}' <<<"$dump" | tr -d '\r')
     min_sdk=$(awk -F= '/minSdk=/{print $2;exit}' <<<"$dump" | tr -d '\r')
@@ -51,7 +51,7 @@ tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
     append_csv_row "$META_FILE" "$pkg,${version:-N/A},${min_sdk:-N/A},${target_sdk:-N/A},${size:-N/A},\"${perms}\""
     status_info "Metadata for $pkg captured"
     ((count++))
-done
+done < <(tail -n +2 "$APK_LIST")
 
 validate_csv "$META_FILE" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
 status_ok "Wrote metadata for $count packages to $META_FILE"
