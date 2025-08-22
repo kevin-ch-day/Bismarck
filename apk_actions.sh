@@ -62,16 +62,21 @@ hash_apks() {
     log_info "Computing SHA-256 hashes..."
     write_csv_header "$MANIFEST" "Package,APK_Path,SHA256"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
+    COUNT=0
+    while IFS=, read -r PKG_NAME APK_PATH; do
         HASH=$(adb -s "$DEVICE" shell sha256sum "$APK_PATH" 2>/dev/null | awk '{print $1}')
         if [ -n "$HASH" ]; then
             append_csv_row "$MANIFEST" "$PKG_NAME,$APK_PATH,$HASH"
+            COUNT=$((COUNT+1))
         else
             log_warn "Could not hash $PKG_NAME ($APK_PATH)"
         fi
-    done
+    done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    log_info "Hash manifest saved → $MANIFEST"
+    if command -v validate_csv >/dev/null 2>&1; then
+        validate_csv "$MANIFEST" "Package,APK_Path,SHA256"
+    fi
+    log_info "Hash manifest saved → $MANIFEST ($COUNT entries)"
 }
 
 apk_metadata() {

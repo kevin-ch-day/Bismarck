@@ -39,6 +39,11 @@ RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
 SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
 
 TOTAL_PKGS=$(( $(wc -l < "$APK_LIST") -1 ))
+
+# Ensure hash file has expected structure
+if [[ -f "$HASH_FILE" ]]; then
+    validate_csv "$HASH_FILE" "Package,APK_Path,SHA256" || status_warn "Malformed apk_hashes.csv"
+fi
 if [[ -f "$SOCIAL_FILE" ]]; then
     Y_COUNT=$(awk -F, 'NR>1 && $4=="Y" && $3=="data"' "$SOCIAL_FILE" | wc -l)
     Q_COUNT=$(awk -F, 'NR>1 && $4=="?" && $3=="data"' "$SOCIAL_FILE" | wc -l)
