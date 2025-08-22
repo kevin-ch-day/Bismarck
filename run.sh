@@ -88,7 +88,7 @@ run_step() {
     status_info "Running $(basename "$script")"
     "$script" --device "$DEVICE" --out "$DEVICE_OUT" "$@"
     if [[ -n "$csv" && -n "$header" ]]; then
-        validate_csv "$csv" "$header"
+        validate_csv "$csv" "$header" || return 1
     fi
 }
 
