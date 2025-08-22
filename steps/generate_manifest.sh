@@ -39,10 +39,24 @@ RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
 SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
 
 TOTAL_PKGS=$(( $(wc -l < "$APK_LIST") -1 ))
+
+# Determine column positions dynamically to avoid stale indices
+DETECTED_COL=0
+INSTALL_COL=0
 if [[ -f "$SOCIAL_FILE" ]]; then
-    Y_COUNT=$(awk -F, 'NR>1 && $4=="Y" && $3=="data"' "$SOCIAL_FILE" | wc -l)
-    Q_COUNT=$(awk -F, 'NR>1 && $4=="?" && $3=="data"' "$SOCIAL_FILE" | wc -l)
-    P_COUNT=$(awk -F, 'NR>1 && $4=="P"' "$SOCIAL_FILE" | wc -l)
+    IFS=',' read -r -a header < "$SOCIAL_FILE"
+    for idx in "${!header[@]}"; do
+        case "${header[$idx]}" in
+            Detected) DETECTED_COL=$((idx+1)) ;;
+            InstallType) INSTALL_COL=$((idx+1)) ;;
+        esac
+    done
+fi
+
+if [[ -f "$SOCIAL_FILE" && $DETECTED_COL -gt 0 && $INSTALL_COL -gt 0 ]]; then
+    Y_COUNT=$(awk -F, -v d=$DETECTED_COL -v i=$INSTALL_COL 'NR>1 && $d=="Y" && $i=="data"' "$SOCIAL_FILE" | wc -l)
+    Q_COUNT=$(awk -F, -v d=$DETECTED_COL -v i=$INSTALL_COL 'NR>1 && $d=="?" && $i=="data"' "$SOCIAL_FILE" | wc -l)
+    P_COUNT=$(awk -F, -v d=$DETECTED_COL 'NR>1 && $d=="P"' "$SOCIAL_FILE" | wc -l)
 else
     Y_COUNT=0; Q_COUNT=0; P_COUNT=0
 fi
@@ -50,8 +64,8 @@ fi
 cat > "$DEVICE_OUT/manifest.json" <<MANIFEST
 {
   "packages_total": $TOTAL_PKGS,
-  "social_exact_data": $Y_COUNT,
-  "social_heuristic_data": $Q_COUNT,
+  "social_user_exact": $Y_COUNT,
+  "social_user_heuristic": $Q_COUNT,
   "social_preload": $P_COUNT,
   "files": {
     "apk_list": "apk_list.csv",
@@ -71,7 +85,8 @@ printf "%-25s %s\n" "apk_hashes.csv" "$(( $(wc -l < "$HASH_FILE") -1 )) rows"
 printf "%-25s %s\n" "running_apps.csv" "$(( $(wc -l < "$RUNNING_FILE") -1 )) rows"
 if [[ -f "$SOCIAL_FILE" ]]; then
     printf "%-25s %s\n" "social_apps_found.csv" "$(( $(wc -l < "$SOCIAL_FILE") -1 )) rows"
-    status_info "User-installed social apps (data+Y): $Y_COUNT"
+    status_info "Exact user-installed social apps (Y): $Y_COUNT"
+    status_info "Heuristic user-installed social apps (?): $Q_COUNT"
     status_info "Preload social components (P): $P_COUNT"
 fi
 status_info "Log: $(basename "$LOG_FILE")"
