@@ -3,8 +3,21 @@
 # Provides: list_devices()
 
 list_devices() {
+    local preselect="$1"
     local devices
     local attempts=0
+
+    # If a serial was provided or already set, just return it
+    if [ -n "$preselect" ]; then
+        DEVICE="$preselect"
+        echo "$DEVICE"
+        return 0
+    fi
+
+    if [ -n "$DEVICE" ]; then
+        echo "$DEVICE"
+        return 0
+    fi
 
     # Retry a few times in case the ADB server is still warming up
     while [ $attempts -lt 5 ]; do
@@ -33,7 +46,7 @@ list_devices() {
     done <<< "$devices"
 
     if [ ${#dev_arr[@]} -eq 1 ]; then
-        echo "${dev_arr[0]}"
+        DEVICE="${dev_arr[0]}"
     else
         read -r -p "[?] Select a device number: " choice
         idx=$((choice-1))
@@ -41,6 +54,9 @@ list_devices() {
             echo ""
             return 1
         fi
-        echo "${dev_arr[$idx]}"
+        DEVICE="${dev_arr[$idx]}"
     fi
+
+    export DEVICE
+    echo "$DEVICE"
 }

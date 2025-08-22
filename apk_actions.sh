@@ -30,22 +30,22 @@ list_apks() {
 
 filter_social_apps() {
     check_device_alive
-    require_file "$OUTDIR/apk_list.csv" || return 1
-
-    SOCIALFILE="$OUTDIR/social_apps.csv"
     log_info "Filtering social media apps..."
-    write_csv_header "$SOCIALFILE" "APK_Path,Package"
 
-    for keyword in "${SOCIAL_APPS[@]}"; do
-        grep -i "$keyword" "$OUTDIR/apk_list.csv" >> "$SOCIALFILE"
-    done
+    bash "$SCRIPT_DIR/find_social_apps.sh" --device "$DEVICE" >>"$LOGFILE" 2>&1
 
-    COUNT=$(($(wc -l < "$SOCIALFILE") - 1))
-    if [ $COUNT -gt 0 ]; then
-        log_info "Found $COUNT social apps → $SOCIALFILE"
+    DEVICE_OUT="$OUTDIR/$DEVICE"
+    LOCAL_SOCIALFILE="$DEVICE_OUT/social_apps_found.csv"
+
+    if [ -f "$LOCAL_SOCIALFILE" ]; then
+        COUNT=$(($(wc -l < "$LOCAL_SOCIALFILE") - 1))
+        if [ $COUNT -gt 0 ]; then
+            log_info "Found $COUNT social apps → $LOCAL_SOCIALFILE"
+        else
+            log_warn "No social media apps found."
+        fi
     else
-        log_warn "No social media apps found."
-        rm -f "$SOCIALFILE"
+        log_warn "Social app scan failed or produced no output."
     fi
 }
 
