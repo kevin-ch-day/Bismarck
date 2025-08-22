@@ -14,10 +14,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -29,9 +34,11 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
-APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
-MOTO_FILE="$DEVICE_OUT/motorola_apps.csv"
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
+MOTO_FILE="$REPORT_DIR/motorola_apps.csv"
 
 status_info "Scanning for Motorola packages on device: $DEVICE"
 TMP_FILE=$(mktemp)
@@ -46,15 +53,15 @@ while IFS=, read -r pkg apk_path; do
     fi
 done < "$APK_LIST_FILE"
 
+write_csv_header "$MOTO_FILE" "Package,APK_Path"
 if [[ $count -gt 0 ]]; then
-    write_csv_header "$MOTO_FILE" "Package,APK_Path"
     sort -f "$TMP_FILE" >> "$MOTO_FILE"
-    validate_csv "$MOTO_FILE" "Package,APK_Path"
     status_ok "Logged $count Motorola packages"
     status_info "Results saved to $MOTO_FILE"
     column -t -s, "$MOTO_FILE" | head
 else
     status_warn "No Motorola packages found"
 fi
+validate_csv "$MOTO_FILE" "Package,APK_Path"
 
 rm -f "$TMP_FILE"

@@ -62,12 +62,12 @@ hash_apks() {
     log_info "Computing SHA-256 hashes..."
     write_csv_header "$MANIFEST" "Package,APK_Path,SHA256"
 
-    COUNT=0
+    count=0
     while IFS=, read -r PKG_NAME APK_PATH; do
         HASH=$(adb -s "$DEVICE" shell sha256sum "$APK_PATH" 2>/dev/null | awk '{print $1}')
         if [ -n "$HASH" ]; then
             append_csv_row "$MANIFEST" "$PKG_NAME,$APK_PATH,$HASH"
-            COUNT=$((COUNT+1))
+            ((count++))
         else
             log_warn "Could not hash $PKG_NAME ($APK_PATH)"
         fi
@@ -76,7 +76,7 @@ hash_apks() {
     if command -v validate_csv >/dev/null 2>&1; then
         validate_csv "$MANIFEST" "Package,APK_Path,SHA256"
     fi
-    log_info "Hash manifest saved → $MANIFEST ($COUNT entries)"
+    log_info "Hashed $count APKs → $MANIFEST"
 }
 
 apk_metadata() {
@@ -88,13 +88,16 @@ apk_metadata() {
     log_info "Extracting version & permissions..."
     write_csv_header "$METADATAFILE" "Package,Version,Permissions"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
+    count=0
+    while IFS=, read -r PKG_NAME APK_PATH; do
         VERSION=$(adb -s "$DEVICE" shell dumpsys package "$PKG_NAME" | grep -m1 versionName | awk -F= '{print $2}')
         PERMS=$(adb -s "$DEVICE" shell dumpsys package "$PKG_NAME" | grep -E "permission " | awk '{print $1}' | tr '\n' ';')
         append_csv_row "$METADATAFILE" "$PKG_NAME,${VERSION:-N/A},\"$PERMS\""
-    done
+        ((count++))
+    done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    log_info "Metadata saved → $METADATAFILE"
+    validate_csv "$METADATAFILE" "Package,Version,Permissions"
+    log_info "Metadata saved for $count packages → $METADATAFILE"
 }
 
 running_processes() {
@@ -106,10 +109,15 @@ running_processes() {
     log_info "Checking running processes..."
     write_csv_header "$RUNNINGFILE" "Package,PID"
 
-    tail -n +2 "$DEVICE_OUT/apk_list.csv" | while IFS=, read -r PKG_NAME APK_PATH; do
+    count=0
+    while IFS=, read -r PKG_NAME APK_PATH; do
         PID=$(adb -s "$DEVICE" shell pidof "$PKG_NAME" 2>/dev/null)
-        [ -n "$PID" ] && append_csv_row "$RUNNINGFILE" "$PKG_NAME,$PID"
-    done
+        if [ -n "$PID" ]; then
+            append_csv_row "$RUNNINGFILE" "$PKG_NAME,$PID"
+            ((count++))
+        fi
+    done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    log_info "Running apps list saved → $RUNNINGFILE"
+    validate_csv "$RUNNINGFILE" "Package,PID"
+    log_info "Logged $count running apps → $RUNNINGFILE"
 }

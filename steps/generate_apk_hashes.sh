@@ -11,10 +11,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -26,9 +31,12 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+
+APK_LIST="$REPORT_DIR/apk_list.csv"
+HASH_FILE="$REPORT_DIR/apk_hashes.csv"
 
 status_info "Hashing APKs for $DEVICE"
 write_csv_header "$HASH_FILE" "Package,APK_Path,SHA256"
@@ -42,12 +50,13 @@ while IFS=, read -r pkg apk_path; do
         fi
         rm -f "$tmp"
     fi
+
     if [[ -n "$hash" ]]; then
         append_csv_row "$HASH_FILE" "$pkg,$apk_path,$hash"
         status_info "Hashed $pkg"
         ((count++))
     else
-        status_warn "Could not hash $pkg"
+        status_warn "Could not hash $pkg ($apk_path)"
     fi
 done < <(tail -n +2 "$APK_LIST")
 
