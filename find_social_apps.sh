@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_social_apps.sh
 # Purpose: Generate social app report for a connected device.
-# Outputs: <out_dir>/social_apps_found.csv
+# Outputs: <run_dir>/reports/social_apps_found.csv
 
 set -euo pipefail
 
@@ -39,18 +39,20 @@ fi
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-# Resolve output directory
-if [[ -n "$OUT_ARG" ]]; then
-    DEVICE_OUT="$OUT_ARG"
-else
-    DEVICE_OUT="$OUTDIR/$DEVICE/reports"
-fi
-mkdir -p "$DEVICE_OUT"
+# Resolve output directory (run root)
+ROOT_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$ROOT_OUT/reports"
+mkdir -p "$REPORT_DIR"
 
-APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
-SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
+APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
+HASH_FILE="$REPORT_DIR/apk_hashes.csv"
+SOCIAL_FILE="$REPORT_DIR/social_apps_found.csv"
 SOURCE_CMD="adb -s $DEVICE shell pm list packages -f"
+
+if [[ ! -f "$APK_LIST_FILE" ]]; then
+    status_error "Required APK list not found: $APK_LIST_FILE"
+    exit 1
+fi
 
 status_info "Scanning for social apps on device: $DEVICE"
 status_info "Using APK list: $APK_LIST_FILE"
@@ -91,7 +93,7 @@ get_family() {
     esac
 }
 
-TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
+TMP_FILE=$(mktemp "$REPORT_DIR/tmp.XXXXXX")
 count=0
 exact_count=0
 preload_count=0
