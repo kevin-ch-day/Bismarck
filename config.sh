@@ -52,15 +52,23 @@ VERBOSE_LOG=false
 #####################
 # Canonical package filters for social media apps
 SOCIAL_APPS=(
+    # Core platforms
     "com.facebook.katana"      # Facebook
     "com.facebook.orca"        # Messenger
     "com.instagram.android"    # Instagram
     "com.twitter.android"      # Twitter / X
+    "com.twitter.android.lite" # Twitter Lite
     "com.zhiliaoapp.musically" # TikTok
     "com.ss.android.ugc.trill" # TikTok (alt)
     "com.snapchat.android"     # Snapchat
     "com.whatsapp"             # WhatsApp
+    "com.whatsapp.w4b"         # WhatsApp Business
     "org.telegram.messenger"   # Telegram
+    "com.facebook.appmanager"  # Facebook App Manager (system)
+    "com.facebook.services"    # Facebook Services (system)
+    "com.facebook.system"      # Facebook Installer (system)
+
+    # Other popular social/messaging apps
     "com.reddit.frontpage"     # Reddit
     "com.linkedin.android"     # LinkedIn
     "com.discord"              # Discord

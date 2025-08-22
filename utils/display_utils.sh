@@ -75,6 +75,19 @@ status_info() {
     echo -e "[${CYAN}ℹ${RESET}] ${WHITE}$1${RESET}"
 }
 
+# Social app discovery helpers
+print_detected() {
+    echo -e "${GREEN}[+]${RESET} ${WHITE}Detected social app:${RESET} $1"
+}
+
+print_unknown() {
+    echo -e "${YELLOW}[-]${RESET} ${WHITE}Package found but not in SOCIAL_APPS list:${RESET} $1"
+}
+
+print_none() {
+    echo -e "${RED}[!]${RESET} ${WHITE}No matches found.${RESET}"
+}
+
 #####################
 # SPINNER (for long tasks)
 #####################
