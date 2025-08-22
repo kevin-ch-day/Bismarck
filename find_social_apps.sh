@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_social_apps.sh
-# Purpose: Enumerate packages on a device and flag known social apps.
-# Outputs manifest to /output/<device_serial>/social_apps_found.csv
+# Purpose: Generate social app report for a connected device.
+# Outputs: /output/<device_serial>/social_apps_found.csv
 
 set -euo pipefail
 
@@ -9,15 +9,6 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/list_devices.sh"
 source "$SCRIPT_DIR/utils/output_utils.sh"
-source "$SCRIPT_DIR/utils/display_utils.sh"
-
-# Build associative array of package -> pretty name
-declare -A SOCIAL_MAP
-for entry in "${SOCIAL_APPS[@]}"; do
-    pkg="${entry%%:*}"
-    name="${entry#*:}"
-    SOCIAL_MAP[$pkg]="$name"
-done
 
 DEVICE_ARG=""
 while [[ ${1-} ]]; do
@@ -32,47 +23,102 @@ while [[ ${1-} ]]; do
     esac
 done
 
-DEVICE=""
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
 DEVICE_OUT="$OUTDIR/$DEVICE"
-mkdir -p "$DEVICE_OUT/apks"
-SOCIALFILE="$DEVICE_OUT/social_apps_found.csv"
-write_csv_header "$SOCIALFILE" "Package,App_Name,Version,APK_Path,SHA256"
-
 APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
-if [ ! -f "$APK_LIST_FILE" ]; then
-    TMP_RAW=$(mktemp)
-    adb -s "$DEVICE" shell pm list packages -f -3 2>/dev/null > "$TMP_RAW"
-    write_csv_header "$APK_LIST_FILE" "APK_Path,Package"
-    awk -F= '{print $1 "," $2}' "$TMP_RAW" | sed 's/^package://g' | sort -t, -k2,2 >> "$APK_LIST_FILE"
-    rm -f "$TMP_RAW"
+HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
+SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
+SOURCE_CMD="adb -s $DEVICE shell pm list packages -f"
+
+# Build hash map from apk_hashes.csv
+declare -A HASH_MAP
+if [[ -f "$HASH_FILE" ]]; then
+    while IFS=, read -r pkg sha src; do
+        [[ "$pkg" == "Package" ]] && continue
+        HASH_MAP[$pkg]="$sha"
+    done < "$HASH_FILE"
 fi
 
-TMP_SOCIAL=$(mktemp)
+# Build lookup sets
+declare -A EXACT_SET
+for pkg in "${SOCIAL_APPS[@]}"; do
+    EXACT_SET[$pkg]=1
+done
+# SOCIAL_PRELOADS associative array already defined in config
+
+get_family() {
+    local pkg="$1"
+    case "$pkg" in
+        com.facebook.*) echo facebook ;;
+        com.instagram.*) echo instagram ;;
+        com.zhiliaoapp.musically|com.ss.android.ugc.*) echo tiktok ;;
+        com.snapchat.android) echo snapchat ;;
+        com.twitter.android*) echo twitter ;;
+        org.telegram.*) echo telegram ;;
+        com.tinder) echo tinder ;;
+        tv.twitch.android.app) echo twitch ;;
+        com.whatsapp*) echo whatsapp ;;
+        com.reddit.frontpage) echo reddit ;;
+        com.linkedin.android) echo linkedin ;;
+        com.discord) echo discord ;;
+        com.google.android.youtube) echo youtube ;;
+        *) echo "" ;;
+    esac
+}
+
+TMP_FILE=$(mktemp)
 found=0
-while IFS=, read -r APK_PATH PKG; do
-    if [[ -n "${SOCIAL_MAP[$PKG]:-}" ]]; then
-        NAME="${SOCIAL_MAP[$PKG]}"
-        VERSION=$(adb -s "$DEVICE" shell dumpsys package "$PKG" | grep -m1 versionName | awk -F= '{print $2}')
-        paths=$(adb -s "$DEVICE" shell pm path "$PKG" 2>/dev/null | sed 's/^package://g')
-        while IFS= read -r path; do
-            [[ -z "$path" ]] && continue
-            hash=$(adb -s "$DEVICE" shell sha256sum "$path" 2>/dev/null | awk '{print $1}')
-            append_csv_row "$TMP_SOCIAL" "$PKG,$NAME,${VERSION:-N/A},$path,$hash"
-            if [ "$PULL_APKS" = true ]; then
-                adb -s "$DEVICE" pull "$path" "$DEVICE_OUT/apks/$(basename "$path")" >/dev/null 2>&1 || true
+
+tail -n +2 "$APK_LIST_FILE" | while IFS=, read -r pkg apk_path; do
+    install="other"
+    case "$apk_path" in
+        /data/app*) install=data ;;
+        /product/*) install=product ;;
+        /system/*|/system_ext/*) install=system ;;
+        /apex/*) install=apex ;;
+        /vendor/*) install=vendor ;;
+    esac
+
+    detected=""
+    family=""
+    if [[ ${EXACT_SET[$pkg]+_} ]]; then
+        detected="Y"
+        family=$(get_family "$pkg")
+    elif [[ ${SOCIAL_PRELOADS[$pkg]+_} ]]; then
+        detected="P"
+        family="${SOCIAL_PRELOADS[$pkg]}"
+    else
+        for kw in "${SOCIAL_KEYWORDS[@]}"; do
+            if [[ "$pkg" == *"$kw"* ]]; then
+                detected="?"
+                family="$kw"
+                break
             fi
-        done <<< "$paths"
-        print_detected "$NAME ($PKG)"
-        found=1
+        done
     fi
-done < <(tail -n +2 "$APK_LIST_FILE")
 
-sort -t, -k1,1 "$TMP_SOCIAL" >> "$SOCIALFILE"
-rm -f "$TMP_SOCIAL"
+    [[ -z "$detected" ]] && continue
 
-if [ $found -eq 0 ]; then
-    print_none
+    case "$detected:$install" in
+        Y:data) confidence=100 ;;
+        \?:data) confidence=70 ;;
+        P:product|P:system|P:apex|P:vendor) confidence=20 ;;
+        \?:product|\?:system|\?:apex|\?:vendor) confidence=15 ;;
+        *) confidence=0 ;;
+    esac
+
+    hash="${HASH_MAP[$pkg]:-}"
+    append_csv_row "$TMP_FILE" "$pkg,$apk_path,$install,$detected,$family,$confidence,$hash,$SOURCE_CMD"
+    found=1
+
+done
+
+if [[ $found -eq 1 ]]; then
+    write_csv_header "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
+    sort -f "$TMP_FILE" >> "$SOCIAL_FILE"
+    validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 fi
+
+rm -f "$TMP_FILE"
