@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_social_apps.sh
 # Purpose: Generate social app report for a connected device.
-# Outputs: /output/<device_serial>/social_apps_found.csv
+# Outputs: <out_dir>/social_apps_found.csv
 
 set -euo pipefail
 
@@ -31,15 +31,25 @@ while [[ ${1-} ]]; do
     esac
 done
 
+if [[ -z "$DEVICE_ARG" ]]; then
+    status_error "Device argument required (--device)"
+    exit 1
+fi
+
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
-REPORT_DIR="$DEVICE_OUT/reports"
-mkdir -p "$REPORT_DIR"
-APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
-HASH_FILE="$REPORT_DIR/apk_hashes.csv"
-SOCIAL_FILE="$REPORT_DIR/social_apps_found.csv"
+# Resolve output directory
+if [[ -n "$OUT_ARG" ]]; then
+    DEVICE_OUT="$OUT_ARG"
+else
+    DEVICE_OUT="$OUTDIR/$DEVICE/reports"
+fi
+mkdir -p "$DEVICE_OUT"
+
+APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
+HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
+SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
 SOURCE_CMD="adb -s $DEVICE shell pm list packages -f"
 
 status_info "Scanning for social apps on device: $DEVICE"
@@ -81,7 +91,7 @@ get_family() {
     esac
 }
 
-TMP_FILE=$(mktemp)
+TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
 count=0
 exact_count=0
 preload_count=0
@@ -156,8 +166,8 @@ if [[ $count -gt 0 ]]; then
 else
     status_warn "No social apps found"
 fi
-validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 
+validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 status_info "Processed $total_scanned packages (excluding system packages)"
 
 rm -f "$TMP_FILE"

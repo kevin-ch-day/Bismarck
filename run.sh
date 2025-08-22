@@ -1,6 +1,7 @@
 #!/bin/bash
 # run.sh
 # Orchestrated full device scan
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -69,7 +70,7 @@ run_step "$SCRIPT_DIR/steps/generate_apk_metadata.sh" \
     "$DEVICE_OUT/reports/apk_metadata.csv" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
 
 run_step "$SCRIPT_DIR/steps/generate_apk_hashes.sh" \
-    "$DEVICE_OUT/reports/apk_hashes.csv" "Package,SHA256,HashSource"
+    "$DEVICE_OUT/reports/apk_hashes.csv" "Package,APK_Path,SHA256"
 
 run_step "$SCRIPT_DIR/steps/generate_running_apps.sh" \
     "$DEVICE_OUT/reports/running_apps.csv" "Package,PID"

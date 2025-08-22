@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_motorola_apps.sh
 # Purpose: Generate report of Motorola packages for a connected device.
-# Output: /output/<device_serial>/motorola_apps.csv
+# Output: <out_dir>/motorola_apps.csv
 
 set -euo pipefail
 
@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
 OUT_ARG=""
+
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
@@ -31,17 +32,27 @@ while [[ ${1-} ]]; do
     esac
 done
 
+if [[ -z "$DEVICE_ARG" ]]; then
+    status_error "Device argument required (--device)"
+    exit 1
+fi
+
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
-REPORT_DIR="$DEVICE_OUT/reports"
-mkdir -p "$REPORT_DIR"
-APK_LIST_FILE="$REPORT_DIR/apk_list.csv"
-MOTO_FILE="$REPORT_DIR/motorola_apps.csv"
+# Resolve output directory
+if [[ -n "$OUT_ARG" ]]; then
+    DEVICE_OUT="$OUT_ARG"
+else
+    DEVICE_OUT="$OUTDIR/$DEVICE/reports"
+fi
+mkdir -p "$DEVICE_OUT"
+
+APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
+MOTO_FILE="$DEVICE_OUT/motorola_apps.csv"
 
 status_info "Scanning for Motorola packages on device: $DEVICE"
-TMP_FILE=$(mktemp)
+TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
 count=0
 
 while IFS=, read -r pkg apk_path; do
@@ -62,6 +73,6 @@ if [[ $count -gt 0 ]]; then
 else
     status_warn "No Motorola packages found"
 fi
-validate_csv "$MOTO_FILE" "Package,APK_Path"
 
+validate_csv "$MOTO_FILE" "Package,APK_Path"
 rm -f "$TMP_FILE"

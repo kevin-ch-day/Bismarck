@@ -1,6 +1,7 @@
 #!/bin/bash
 # Script: capture_screenshot.sh
 # Purpose: Capture a screenshot from the connected device.
+# Outputs: <out_dir>/screenshots/screen_TIMESTAMP.png
 
 set -euo pipefail
 
@@ -18,7 +19,11 @@ while [[ ${1-} ]]; do
             DEVICE_ARG="$2"
             shift 2
             ;;
-        -o|--outdir)
+        -o|--out)
+            OUT_ARG="$2"
+            shift 2
+            ;;
+        --outdir)
             OUT_ARG="$2"
             shift 2
             ;;

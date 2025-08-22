@@ -1,5 +1,8 @@
 #!/bin/bash
-# Generate running_apps.csv for a device
+# Script: steps/generate_running_apps.sh
+# Purpose: Generate running_apps.csv for a device.
+# Usage: generate_running_apps.sh --device <id> --out <dir>
+# Outputs: <out_dir>/reports/running_apps.csv
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,6 +34,7 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
+# Default to reports subdir for consistency
 DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
 REPORT_DIR="$DEVICE_OUT/reports"
 mkdir -p "$REPORT_DIR"

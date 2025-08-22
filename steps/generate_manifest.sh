@@ -1,5 +1,8 @@
 #!/bin/bash
-# Generate manifest.json and run summary for a device
+# Script: steps/generate_manifest.sh
+# Purpose: Generate manifest.json and run summary for a device.
+# Usage: generate_manifest.sh --device <id> --out <dir> [--log <file>] [--summary <file>]
+# Outputs: <out_dir>/manifest.json
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,6 +50,7 @@ fi
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
+# Default output structure
 DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
 REPORT_DIR="$DEVICE_OUT/reports"
 mkdir -p "$REPORT_DIR"
@@ -80,7 +84,7 @@ if [[ -f "$HASH_FILE" ]]; then
     validate_csv "$HASH_FILE" "Package,APK_Path,SHA256" || status_warn "Malformed apk_hashes.csv"
 fi
 
-# Determine column positions dynamically to avoid stale indices
+# Determine column positions dynamically
 DETECTED_COL=0
 INSTALL_COL=0
 if [[ -f "$SOCIAL_FILE" ]]; then
