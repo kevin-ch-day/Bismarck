@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/list_devices.sh"
 source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 source "$SCRIPT_DIR/utils/validate_csv.sh"
+source "$SCRIPT_DIR/utils/device_utils.sh"
 
 usage() {
     echo "Usage: $0 [-d DEVICE] [--menu]" >&2
@@ -61,6 +62,7 @@ fi
 
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
+ensure_device_state "$DEVICE"
 
 # Timestamped run directory
 RUN_TS=$(date +%Y%m%d_%H%M%S)
