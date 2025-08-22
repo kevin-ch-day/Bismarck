@@ -11,10 +11,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -26,9 +31,12 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-META_FILE="$DEVICE_OUT/apk_metadata.csv"
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+
+APK_LIST="$REPORT_DIR/apk_list.csv"
+META_FILE="$REPORT_DIR/apk_metadata.csv"
 
 status_info "Extracting metadata from packages on $DEVICE"
 write_csv_header "$META_FILE" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
