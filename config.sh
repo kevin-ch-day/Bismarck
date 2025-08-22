@@ -14,7 +14,12 @@ OUTDIR="$PROJECT_ROOT/output"
 DOWNLOADS="$PROJECT_ROOT/downloads"
 
 # Ensure required dirs exist
-mkdir -p "$LOGDIR" "$OUTDIR" "$DOWNLOADS"
+mkdir -p "$LOGDIR" "$OUTDIR"
+if [[ -L "$DOWNLOADS" || -d "$DOWNLOADS" ]]; then
+    :
+else
+    mkdir -p "$DOWNLOADS"
+fi
 
 #####################
 # BEHAVIOR FLAGS

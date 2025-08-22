@@ -8,15 +8,19 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/utils/display/base.sh"
+source "$SCRIPT_DIR/utils/display/status.sh"
+
 PKG="com.zhiliaoapp.musically"
 DEVICE=""
 OUTDIR="."
 
 usage() {
-  echo "Usage: $0 [-d SERIAL] [-p PACKAGE] [-o OUTDIR]"
-  echo "  -d SERIAL   ADB device serial (auto if exactly one device connected)"
-  echo "  -p PACKAGE  Android package name (default: ${PKG})"
-  echo "  -o OUTDIR   Output directory (default: current directory)"
+  echo -e "${BOLD}Usage:${RESET} $0 [-d SERIAL] [-p PACKAGE] [-o OUTDIR]"
+  echo -e "  ${YELLOW}-d SERIAL${RESET}   ADB device serial (auto if exactly one device connected)"
+  echo -e "  ${YELLOW}-p PACKAGE${RESET}  Android package name (default: ${PKG})"
+  echo -e "  ${YELLOW}-o OUTDIR${RESET}   Output directory (default: current directory)"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -30,7 +34,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Checks ---
-command -v adb >/dev/null 2>&1 || { echo "adb not found in PATH"; exit 2; }
+command -v adb >/dev/null 2>&1 || { status_error "adb not found in PATH"; exit 2; }
 mkdir -p "$OUTDIR"
 
 pick_single_device() {
@@ -42,7 +46,7 @@ if [[ -z "$DEVICE" ]]; then
   if [[ ${#DEVICES[@]} -eq 1 ]]; then
     DEVICE="${DEVICES[0]}"
   else
-    echo "Multiple or zero devices. Use -d SERIAL." >&2
+    status_warn "Multiple or zero devices. Use -d SERIAL." >&2
     adb devices -l
     exit 3
   fi
@@ -54,8 +58,8 @@ if [[ "$STATE" != "device" ]]; then
   echo "Device $DEVICE not ready (state: $STATE)"; exit 4
 fi
 
-echo "[*] Device: $DEVICE"
-echo "[*] Package: $PKG"
+  status_info "Device: $DEVICE"
+  status_info "Package: $PKG"
 
 # --- Get APK paths (support splits) ---
 # Prefer 'cmd package path', fallback to 'pm path'
@@ -73,12 +77,12 @@ get_paths() {
 mapfile -t PATHS < <(get_paths)
 
 if [[ ${#PATHS[@]} -eq 0 ]]; then
-  echo "[-] No APK paths found for $PKG (not installed or insufficient permissions)."
+  status_error "No APK paths found for $PKG (not installed or insufficient permissions)."
   exit 5
 fi
 
-echo "[*] Found ${#PATHS[@]} APK path(s):"
-for p in "${PATHS[@]}"; do echo "    - $p"; done
+status_info "Found ${#PATHS[@]} APK path(s):"
+for p in "${PATHS[@]}"; do echo -e "    ${CYAN}-${RESET} $p"; done
 
 # --- Pull APK(s) ---
 # Name files predictably in OUTDIR:
@@ -93,23 +97,35 @@ for remote in "${PATHS[@]}"; do
     *.apk)    out="${PKG}-${base}" ;;
     *)        out="${PKG}-${base}.apk" ;;
   esac
-  echo "[*] Pulling: $remote -> $OUTDIR/$out"
+  status_info "Pulling: $remote -> $OUTDIR/$out"
   if adb -s "$DEVICE" pull "$remote" "$OUTDIR/$out"; then
     pulled_any="true"
   else
-    echo "[!] Failed to pull: $remote"
+    status_warn "Failed to pull: $remote"
   fi
 done
 
 if [[ "$pulled_any" != "true" ]]; then
-  echo "[-] Failed to pull any APKs for $PKG."
+  status_error "Failed to pull any APKs for $PKG."
   exit 6
 fi
 
 # --- Optional: show SHA-256 for proof ---
 if command -v sha256sum >/dev/null 2>&1; then
-  echo "[*] SHA-256 of pulled files:"
+  status_info "SHA-256 of pulled files:"
   (cd "$OUTDIR" && sha256sum "${PKG}-"*.apk || true)
 fi
+FEATURE_FILE="$OUTDIR/${PKG}_features.csv"
+if command -v aapt >/dev/null 2>&1; then
+  first_apk=$(ls "$OUTDIR/${PKG}-"*.apk 2>/dev/null | head -n1)
+  if [[ -n "$first_apk" ]]; then
+    status_info "Extracting static features"
+    "$SCRIPT_DIR/extract_apk_features.sh" "$first_apk" "$FEATURE_FILE" >/dev/null
+    status_info "Features saved to $FEATURE_FILE"
+    column -t -s, "$FEATURE_FILE"
+  fi
+else
+  status_warn "aapt not found; skipping static feature extraction"
+fi
 
-echo "[+] Done. Files saved in: $OUTDIR"
+status_ok "Done. Files saved in: $OUTDIR"

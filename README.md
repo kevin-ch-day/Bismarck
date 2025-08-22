@@ -11,6 +11,8 @@ triage a device quickly.
 - Builds a single `apps_master.csv` with paths, versions, permissions,
   hashes, and running state. The column schema is documented in
   [`docs/apps_master_schema.md`](docs/apps_master_schema.md).
+- Records version, SDK levels, size, and permissions for each package in
+  `apk_metadata.csv` to seed static analysis and ML workflows.
 - Places all artifacts under `output/<serial>/<run-id>/` with a `latest`
   symlink for quick access.
 
@@ -39,6 +41,12 @@ Runs the same pipeline without prompts, useful for scripting or CI.
 
 ### Targeted steps
 Currently the script executes all stages sequentially. Future iterations will allow running individual steps.
+
+### Pulling and profiling a single APK
+Use `./pull_tiktok_apk.sh -p <package>` to grab an APK from the device.
+When `aapt` is available, static features such as SDK levels, size, and
+declared permissions are written to `<package>_features.csv` alongside the
+pulled files.
 
 ## Supporting and contributing
 

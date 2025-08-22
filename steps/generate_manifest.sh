@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/list_devices.sh"
 source "$SCRIPT_DIR/utils/output_utils.sh"
 source "$SCRIPT_DIR/utils/validate_csv.sh"
+source "$SCRIPT_DIR/utils/display/base.sh"
+source "$SCRIPT_DIR/utils/display/status.sh"
 
 LOG_FILE=""
 DEVICE_ARG=""
@@ -62,15 +64,15 @@ cat > "$DEVICE_OUT/manifest.json" <<MANIFEST
 }
 MANIFEST
 
-echo "Run Summary"
-echo "-----------"
+status_info "Run Summary"
 printf "%-25s %s\n" "apk_list.csv" "$(( $(wc -l < "$APK_LIST") -1 )) rows"
 printf "%-25s %s\n" "apk_metadata.csv" "$(( $(wc -l < "$META_FILE") -1 )) rows"
 printf "%-25s %s\n" "apk_hashes.csv" "$(( $(wc -l < "$HASH_FILE") -1 )) rows"
 printf "%-25s %s\n" "running_apps.csv" "$(( $(wc -l < "$RUNNING_FILE") -1 )) rows"
 if [[ -f "$SOCIAL_FILE" ]]; then
     printf "%-25s %s\n" "social_apps_found.csv" "$(( $(wc -l < "$SOCIAL_FILE") -1 )) rows"
-    echo "User-installed social apps (data+Y): $Y_COUNT"
-    echo "Preload social components (P): $P_COUNT"
+    status_info "User-installed social apps (data+Y): $Y_COUNT"
+    status_info "Preload social components (P): $P_COUNT"
 fi
-echo "Log: $(basename "$LOG_FILE")"
+status_info "Log: $(basename "$LOG_FILE")"
+status_ok "Manifest written to $DEVICE_OUT/manifest.json"
