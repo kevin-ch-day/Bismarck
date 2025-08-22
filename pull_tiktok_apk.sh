@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Pull TikTok APK(s) from an Android device into the current directory.
+# Script: pull_tiktok_apk.sh
+# Purpose: Pull TikTok APK(s) from an Android device into the current directory.
 # Defaults to package: com.zhiliaoapp.musically
 # Usage:
 #   ./pull_tiktok_apk.sh                # auto-pick one connected device

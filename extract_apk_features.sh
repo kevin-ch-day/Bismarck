@@ -1,5 +1,8 @@
 #!/bin/bash
-# Extract static features from a local APK using aapt
+# Script: extract_apk_features.sh
+# Purpose: Extract static features from a local APK using aapt.
+# Usage: extract_apk_features.sh <apk-file> <output-csv>
+# Outputs: CSV file with static features at the given path.
 set -euo pipefail
 
 if [[ $# -lt 2 ]]; then

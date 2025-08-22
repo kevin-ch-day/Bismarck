@@ -1,5 +1,8 @@
 #!/bin/bash
-# Generate manifest.json and run summary for a device
+# Script: steps/generate_manifest.sh
+# Purpose: Generate manifest.json and run summary for a device.
+# Usage: generate_manifest.sh --device <id> --out <dir>
+# Outputs: <out_dir>/manifest.json
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,6 +15,7 @@ source "$SCRIPT_DIR/utils/display/status.sh"
 
 LOG_FILE=""
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
@@ -20,6 +24,10 @@ while [[ ${1-} ]]; do
             ;;
         -l|--log)
             LOG_FILE="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -31,7 +39,13 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
+if [[ -z "$OUT_ARG" ]]; then
+    status_error "Output directory required (--out)"
+    exit 1
+fi
+
+DEVICE_OUT="$OUT_ARG"
+mkdir -p "$DEVICE_OUT"
 APK_LIST="$DEVICE_OUT/apk_list.csv"
 META_FILE="$DEVICE_OUT/apk_metadata.csv"
 HASH_FILE="$DEVICE_OUT/apk_hashes.csv"

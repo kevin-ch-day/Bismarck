@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_social_apps.sh
 # Purpose: Generate social app report for a connected device.
-# Outputs: /output/<device_serial>/social_apps_found.csv
+# Outputs: <out_dir>/social_apps_found.csv
 
 set -euo pipefail
 
@@ -14,10 +14,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -29,7 +34,13 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
+if [[ -z "$OUT_ARG" ]]; then
+    status_error "Output directory required (--out)"
+    exit 1
+fi
+
+DEVICE_OUT="$OUT_ARG"
+mkdir -p "$DEVICE_OUT"
 APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
 HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
 SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
@@ -74,7 +85,7 @@ get_family() {
     esac
 }
 
-TMP_FILE=$(mktemp)
+TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
 count=0
 exact_count=0
 preload_count=0

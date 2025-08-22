@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: find_motorola_apps.sh
 # Purpose: Generate report of Motorola packages for a connected device.
-# Output: /output/<device_serial>/motorola_apps.csv
+# Output: <out_dir>/motorola_apps.csv
 
 set -euo pipefail
 
@@ -14,10 +14,15 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 DEVICE_ARG=""
+OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
+            shift 2
+            ;;
+        -o|--out)
+            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -29,12 +34,18 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-DEVICE_OUT="$OUTDIR/$DEVICE"
+if [[ -z "$OUT_ARG" ]]; then
+    status_error "Output directory required (--out)"
+    exit 1
+fi
+
+DEVICE_OUT="$OUT_ARG"
+mkdir -p "$DEVICE_OUT"
 APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
 MOTO_FILE="$DEVICE_OUT/motorola_apps.csv"
 
 status_info "Scanning for Motorola packages on device: $DEVICE"
-TMP_FILE=$(mktemp)
+TMP_FILE=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
 count=0
 
 while IFS=, read -r pkg apk_path; do

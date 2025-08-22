@@ -1,5 +1,8 @@
 #!/bin/bash
-# Orchestrate device data collection using step scripts
+# Script: run.sh
+# Purpose: Orchestrate device data collection using step scripts.
+# Usage: run.sh --device <id> --out <dir>
+# Outputs: per-device reports under the provided output directory.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,12 +34,12 @@ setup_logging() {
     status_info "Logs: $LOG_FILE"
 }
 
-run_apk_list()      { status_info "Generating APK list"; "$SCRIPT_DIR/steps/generate_apk_list.sh" -d "$DEVICE"; }
-run_social_scan()   { status_info "Finding social apps"; "$SCRIPT_DIR/find_social_apps.sh" -d "$DEVICE"; }
-run_motorola_scan() { status_info "Listing Motorola apps"; "$SCRIPT_DIR/find_motorola_apps.sh" -d "$DEVICE"; }
-run_apk_hashes()    { status_info "Computing APK hashes"; "$SCRIPT_DIR/steps/generate_apk_hashes.sh" -d "$DEVICE"; }
-run_apk_metadata()  { status_info "Extracting APK metadata"; "$SCRIPT_DIR/steps/generate_apk_metadata.sh" -d "$DEVICE"; }
-run_running_apps()  { status_info "Listing running processes"; "$SCRIPT_DIR/steps/generate_running_apps.sh" -d "$DEVICE"; }
+run_apk_list()      { status_info "Generating APK list"; "$SCRIPT_DIR/steps/generate_apk_list.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
+run_social_scan()   { status_info "Finding social apps"; "$SCRIPT_DIR/find_social_apps.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
+run_motorola_scan() { status_info "Listing Motorola apps"; "$SCRIPT_DIR/find_motorola_apps.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
+run_apk_hashes()    { status_info "Computing APK hashes"; "$SCRIPT_DIR/steps/generate_apk_hashes.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
+run_apk_metadata()  { status_info "Extracting APK metadata"; "$SCRIPT_DIR/steps/generate_apk_metadata.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
+run_running_apps()  { status_info "Listing running processes"; "$SCRIPT_DIR/steps/generate_running_apps.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
 run_pull_tiktok()   { status_info "Pulling TikTok APK"; "$SCRIPT_DIR/pull_tiktok_apk.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
 run_screenshot()    { status_info "Capturing screenshot"; "$SCRIPT_DIR/capture_screenshot.sh" -d "$DEVICE" -o "$DEVICE_OUT"; }
 run_shell()         { "$SCRIPT_DIR/device_shell.sh" -d "$DEVICE"; }
@@ -63,7 +66,7 @@ run_full_scan() {
     run_running_apps
     run_social_scan
     run_motorola_scan
-    "$SCRIPT_DIR/steps/generate_manifest.sh" -d "$DEVICE" -l "$LOG_FILE"
+    "$SCRIPT_DIR/steps/generate_manifest.sh" -d "$DEVICE" -l "$LOG_FILE" -o "$DEVICE_OUT"
     status_ok "Full scan complete. Reports saved to $DEVICE_OUT"
 }
 
