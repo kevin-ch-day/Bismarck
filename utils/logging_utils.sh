@@ -98,7 +98,8 @@ log_start_timer() {
 }
 
 log_end_timer() {
-    local end=$(date +%s)
+    local end
+    end=$(date +%s)
     local elapsed=$((end - TIMER_START))
     log_info "Elapsed time: ${elapsed}s"
 }

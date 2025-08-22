@@ -8,7 +8,6 @@
 #####################
 RESET="\e[0m"
 BOLD="\e[1m"
-DIM="\e[2m"
 
 # Bright colors (high contrast on black background)
 CYAN="\e[96m"
