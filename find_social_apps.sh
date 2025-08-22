@@ -31,16 +31,22 @@ while [[ ${1-} ]]; do
     esac
 done
 
-DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
-adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
-
-if [[ -z "$OUT_ARG" ]]; then
-    status_error "Output directory required (--out)"
+if [[ -z "$DEVICE_ARG" ]]; then
+    status_error "Device argument required (--device)"
     exit 1
 fi
 
-DEVICE_OUT="$OUT_ARG"
+DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
+adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
+
+# Resolve output directory
+if [[ -n "$OUT_ARG" ]]; then
+    DEVICE_OUT="$OUT_ARG"
+else
+    DEVICE_OUT="$OUTDIR/$DEVICE/reports"
+fi
 mkdir -p "$DEVICE_OUT"
+
 APK_LIST_FILE="$DEVICE_OUT/apk_list.csv"
 HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
 SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
@@ -52,7 +58,7 @@ status_info "Using APK list: $APK_LIST_FILE"
 # Build hash map from apk_hashes.csv
 declare -A HASH_MAP
 if [[ -f "$HASH_FILE" ]]; then
-    while IFS=, read -r pkg sha src; do
+    while IFS=, read -r pkg apk_path sha; do
         [[ "$pkg" == "Package" ]] && continue
         HASH_MAP[$pkg]="$sha"
     done < "$HASH_FILE"
@@ -149,20 +155,19 @@ while IFS=, read -r pkg apk_path; do
     fi
 done < <(tail -n +2 "$APK_LIST_FILE")
 
+write_csv_header "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 if [[ $count -gt 0 ]]; then
-    write_csv_header "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
     sort -f "$TMP_FILE" >> "$SOCIAL_FILE"
-    validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
     status_ok "Found $count social apps"
     status_info "Exact: $exact_count | Preloaded: $preload_count | Keyword: $keyword_count"
     status_info "Results saved to $SOCIAL_FILE"
     status_info "Report preview:"
     column -t -s, "$SOCIAL_FILE" | head
 else
-    print_none
+    status_warn "No social apps found"
 fi
 
+validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
 status_info "Processed $total_scanned packages (excluding system packages)"
 
 rm -f "$TMP_FILE"
-

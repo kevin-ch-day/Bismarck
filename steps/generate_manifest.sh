@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: steps/generate_manifest.sh
 # Purpose: Generate manifest.json and run summary for a device.
-# Usage: generate_manifest.sh --device <id> --out <dir>
+# Usage: generate_manifest.sh --device <id> --out <dir> [--log <file>] [--summary <file>]
 # Outputs: <out_dir>/manifest.json
 set -euo pipefail
 
@@ -14,8 +14,10 @@ source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
 
 LOG_FILE=""
+SUMMARY_FILE=""
 DEVICE_ARG=""
 OUT_ARG=""
+
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
@@ -24,6 +26,10 @@ while [[ ${1-} ]]; do
             ;;
         -l|--log)
             LOG_FILE="$2"
+            shift 2
+            ;;
+        -s|--summary)
+            SUMMARY_FILE="$2"
             shift 2
             ;;
         -o|--out)
@@ -36,57 +42,106 @@ while [[ ${1-} ]]; do
     esac
 done
 
-DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
-adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
-
-if [[ -z "$OUT_ARG" ]]; then
-    status_error "Output directory required (--out)"
+if [[ -z "$DEVICE_ARG" ]]; then
+    echo "Error: device argument (-d) required" >&2
     exit 1
 fi
 
-DEVICE_OUT="$OUT_ARG"
-mkdir -p "$DEVICE_OUT"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-META_FILE="$DEVICE_OUT/apk_metadata.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
-RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
-SOCIAL_FILE="$DEVICE_OUT/social_apps_found.csv"
+DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
+adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-TOTAL_PKGS=$(( $(wc -l < "$APK_LIST") -1 ))
+# Default output structure
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
+
+APK_LIST="$REPORT_DIR/apk_list.csv"
+META_FILE="$REPORT_DIR/apk_metadata.csv"
+HASH_FILE="$REPORT_DIR/apk_hashes.csv"
+RUNNING_FILE="$REPORT_DIR/running_apps.csv"
+SOCIAL_FILE="$REPORT_DIR/social_apps_found.csv"
+
+if [[ -z "$LOG_FILE" ]]; then
+    LOG_FILE="$REPORT_DIR/run.log"
+fi
+if [[ -z "$SUMMARY_FILE" ]]; then
+    SUMMARY_FILE="$REPORT_DIR/run_summary.txt"
+fi
+mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$SUMMARY_FILE")"
+
+# Log everything to file and stdout
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+LOG_REL=${LOG_FILE#"$DEVICE_OUT/"}
+SUMMARY_REL=${SUMMARY_FILE#"$DEVICE_OUT/"}
+
+row_count() { [[ -f "$1" ]] && echo $(( $(wc -l < "$1") -1 )) || echo 0; }
+
+TOTAL_PKGS=$(row_count "$APK_LIST")
+
+# Ensure hash file has expected structure if present
+if [[ -f "$HASH_FILE" ]]; then
+    validate_csv "$HASH_FILE" "Package,APK_Path,SHA256" || status_warn "Malformed apk_hashes.csv"
+fi
+
+# Determine column positions dynamically
+DETECTED_COL=0
+INSTALL_COL=0
 if [[ -f "$SOCIAL_FILE" ]]; then
-    Y_COUNT=$(awk -F, 'NR>1 && $4=="Y" && $3=="data"' "$SOCIAL_FILE" | wc -l)
-    Q_COUNT=$(awk -F, 'NR>1 && $4=="?" && $3=="data"' "$SOCIAL_FILE" | wc -l)
-    P_COUNT=$(awk -F, 'NR>1 && $4=="P"' "$SOCIAL_FILE" | wc -l)
+    IFS=',' read -r -a header < "$SOCIAL_FILE"
+    for idx in "${!header[@]}"; do
+        case "${header[$idx]}" in
+            Detected)   DETECTED_COL=$((idx+1)) ;;
+            InstallType) INSTALL_COL=$((idx+1)) ;;
+        esac
+    done
+fi
+
+if [[ -f "$SOCIAL_FILE" && $DETECTED_COL -gt 0 && $INSTALL_COL -gt 0 ]]; then
+    Y_COUNT=$(awk -F, -v d=$DETECTED_COL -v i=$INSTALL_COL 'NR>1 && $d=="Y" && $i=="data"' "$SOCIAL_FILE" | wc -l)
+    Q_COUNT=$(awk -F, -v d=$DETECTED_COL -v i=$INSTALL_COL 'NR>1 && $d=="?" && $i=="data"' "$SOCIAL_FILE" | wc -l)
+    P_COUNT=$(awk -F, -v d=$DETECTED_COL 'NR>1 && $d=="P"' "$SOCIAL_FILE" | wc -l)
 else
     Y_COUNT=0; Q_COUNT=0; P_COUNT=0
 fi
 
+# Generate manifest.json
 cat > "$DEVICE_OUT/manifest.json" <<MANIFEST
 {
   "packages_total": $TOTAL_PKGS,
-  "social_exact_data": $Y_COUNT,
-  "social_heuristic_data": $Q_COUNT,
+  "social_user_exact": $Y_COUNT,
+  "social_user_heuristic": $Q_COUNT,
   "social_preload": $P_COUNT,
   "files": {
     "apk_list": "apk_list.csv",
     "apk_metadata": "apk_metadata.csv",
     "apk_hashes": "apk_hashes.csv",
     "running_apps": "running_apps.csv",
-    "social_apps": "$( [[ -f "$SOCIAL_FILE" ]] && echo social_apps_found.csv || echo "" )",
-    "log": "$(basename "$LOG_FILE")"
+    "social_apps": $( [[ -f "$SOCIAL_FILE" ]] && echo '"social_apps_found.csv"' || echo null ),
+    "log": "$LOG_REL",
+    "summary": "$SUMMARY_REL"
   }
 }
 MANIFEST
 
+# Print run summary
 status_info "Run Summary"
-printf "%-25s %s\n" "apk_list.csv" "$(( $(wc -l < "$APK_LIST") -1 )) rows"
-printf "%-25s %s\n" "apk_metadata.csv" "$(( $(wc -l < "$META_FILE") -1 )) rows"
-printf "%-25s %s\n" "apk_hashes.csv" "$(( $(wc -l < "$HASH_FILE") -1 )) rows"
-printf "%-25s %s\n" "running_apps.csv" "$(( $(wc -l < "$RUNNING_FILE") -1 )) rows"
+{
+    printf "%-25s %s\n" "apk_list.csv" "$(row_count "$APK_LIST") rows"
+    printf "%-25s %s\n" "apk_metadata.csv" "$(row_count "$META_FILE") rows"
+    printf "%-25s %s\n" "apk_hashes.csv" "$(row_count "$HASH_FILE") rows"
+    printf "%-25s %s\n" "running_apps.csv" "$(row_count "$RUNNING_FILE") rows"
+    if [[ -f "$SOCIAL_FILE" ]]; then
+        printf "%-25s %s\n" "social_apps_found.csv" "$(row_count "$SOCIAL_FILE") rows"
+    fi
+} | tee "$SUMMARY_FILE"
+
 if [[ -f "$SOCIAL_FILE" ]]; then
-    printf "%-25s %s\n" "social_apps_found.csv" "$(( $(wc -l < "$SOCIAL_FILE") -1 )) rows"
-    status_info "User-installed social apps (data+Y): $Y_COUNT"
+    status_info "Exact user-installed social apps (Y): $Y_COUNT"
+    status_info "Heuristic user-installed social apps (?): $Q_COUNT"
     status_info "Preload social components (P): $P_COUNT"
 fi
-status_info "Log: $(basename "$LOG_FILE")"
+
+status_info "Log: $LOG_REL"
+status_info "Summary: $SUMMARY_REL"
 status_ok "Manifest written to $DEVICE_OUT/manifest.json"

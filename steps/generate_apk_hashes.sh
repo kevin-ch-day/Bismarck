@@ -1,28 +1,21 @@
 #!/bin/bash
-# Script: steps/generate_apk_hashes.sh
-# Purpose: Generate apk_hashes.csv for a device.
-# Usage: generate_apk_hashes.sh --device <id> --out <dir>
-# Outputs: <out_dir>/apk_hashes.csv
+# run.sh
+# Orchestrated full device scan
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/list_devices.sh"
-source "$SCRIPT_DIR/utils/output_utils.sh"
-source "$SCRIPT_DIR/utils/validate_csv.sh"
 source "$SCRIPT_DIR/utils/display/base.sh"
 source "$SCRIPT_DIR/utils/display/status.sh"
+source "$SCRIPT_DIR/utils/validate_csv.sh"
 
 DEVICE_ARG=""
-OUT_ARG=""
 while [[ ${1-} ]]; do
     case "$1" in
         -d|--device)
             DEVICE_ARG="$2"
-            shift 2
-            ;;
-        -o|--out)
-            OUT_ARG="$2"
             shift 2
             ;;
         *)
@@ -31,37 +24,63 @@ while [[ ${1-} ]]; do
     esac
 done
 
-DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
-adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
-
-if [[ -z "$OUT_ARG" ]]; then
-    status_error "Output directory required (--out)"
+if [[ -z "$DEVICE_ARG" ]]; then
+    echo "Error: device argument (-d) required" >&2
     exit 1
 fi
 
-DEVICE_OUT="$OUT_ARG"
-mkdir -p "$DEVICE_OUT"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-HASH_FILE="$DEVICE_OUT/apk_hashes.csv"
+DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
+adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-status_info "Hashing APKs for $DEVICE"
-write_csv_header "$HASH_FILE" "Package,SHA256,HashSource"
-count=0
-tail -n +2 "$APK_LIST" | while IFS=, read -r pkg apk_path; do
-    hash=$(adb -s "$DEVICE" shell sha256sum "$apk_path" 2>/dev/null | awk '{print $1}')
-    src=device
-    if [[ -z "$hash" ]]; then
-        tmp=$(mktemp "$DEVICE_OUT/tmp.XXXXXX")
-        if adb -s "$DEVICE" pull "$apk_path" "$tmp" >/dev/null 2>&1; then
-            hash=$(sha256sum "$tmp" | awk '{print $1}')
-            src=host
-        fi
-        rm -f "$tmp"
+# Timestamped run directory
+RUN_TS=$(date +%Y%m%d_%H%M%S)
+DEVICE_DIR="$OUTDIR/$DEVICE"
+DEVICE_OUT="$DEVICE_DIR/$RUN_TS"
+mkdir -p "$DEVICE_OUT"/{apks,raw,reports}
+ln -sfn "$RUN_TS" "$DEVICE_DIR/latest"
+
+LOG_FILE="$DEVICE_OUT/reports/run.log"
+SUMMARY_FILE="$DEVICE_OUT/reports/run_summary.txt"
+
+# Log everything to file and stdout
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+status_info "Device: $DEVICE"
+status_info "Output: $DEVICE_OUT"
+status_info "Logs: $LOG_FILE"
+status_info "Summary: $SUMMARY_FILE"
+
+run_step() {
+    local script="$1"
+    local csv="$2"
+    local header="$3"
+    shift 3
+    status_info "Running $(basename "$script")"
+    "$script" --device "$DEVICE" --out "$DEVICE_OUT" "$@"
+    if [[ -n "$csv" && -n "$header" ]]; then
+        validate_csv "$csv" "$header"
     fi
-    append_csv_row "$HASH_FILE" "$pkg,${hash},$src"
-    status_info "Hashed $pkg"
-    ((count++))
-done
+}
 
-validate_csv "$HASH_FILE" "Package,SHA256,HashSource"
-status_ok "Wrote $count hashes to $HASH_FILE"
+# Steps
+run_step "$SCRIPT_DIR/steps/generate_apk_list.sh" \
+    "$DEVICE_OUT/reports/apk_list.csv" "Package,APK_Path"
+
+run_step "$SCRIPT_DIR/steps/generate_apk_metadata.sh" \
+    "$DEVICE_OUT/reports/apk_metadata.csv" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
+
+run_step "$SCRIPT_DIR/steps/generate_apk_hashes.sh" \
+    "$DEVICE_OUT/reports/apk_hashes.csv" "Package,APK_Path,SHA256"
+
+run_step "$SCRIPT_DIR/steps/generate_running_apps.sh" \
+    "$DEVICE_OUT/reports/running_apps.csv" "Package,PID"
+
+run_step "$SCRIPT_DIR/find_social_apps.sh" \
+    "$DEVICE_OUT/reports/social_apps_found.csv" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
+
+run_step "$SCRIPT_DIR/find_motorola_apps.sh" \
+    "$DEVICE_OUT/reports/motorola_apps.csv" "Package,APK_Path"
+
+run_step "$SCRIPT_DIR/steps/generate_manifest.sh" "" "" --log "$LOG_FILE" --summary "$SUMMARY_FILE"
+
+status_ok "Full scan complete. Reports saved to $DEVICE_OUT"

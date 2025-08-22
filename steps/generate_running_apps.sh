@@ -2,7 +2,7 @@
 # Script: steps/generate_running_apps.sh
 # Purpose: Generate running_apps.csv for a device.
 # Usage: generate_running_apps.sh --device <id> --out <dir>
-# Outputs: <out_dir>/running_apps.csv
+# Outputs: <out_dir>/reports/running_apps.csv
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,27 +34,25 @@ done
 DEVICE=$(list_devices "$DEVICE_ARG") || exit 1
 adb -s "$DEVICE" wait-for-device >/dev/null 2>&1
 
-if [[ -z "$OUT_ARG" ]]; then
-    status_error "Output directory required (--out)"
-    exit 1
-fi
+# Default to reports subdir for consistency
+DEVICE_OUT="${OUT_ARG:-$OUTDIR/$DEVICE}"
+REPORT_DIR="$DEVICE_OUT/reports"
+mkdir -p "$REPORT_DIR"
 
-DEVICE_OUT="$OUT_ARG"
-mkdir -p "$DEVICE_OUT"
-APK_LIST="$DEVICE_OUT/apk_list.csv"
-RUNNING_FILE="$DEVICE_OUT/running_apps.csv"
+APK_LIST="$REPORT_DIR/apk_list.csv"
+RUNNING_FILE="$REPORT_DIR/running_apps.csv"
 
 status_info "Checking running processes on $DEVICE"
 write_csv_header "$RUNNING_FILE" "Package,PID"
 count=0
-tail -n +2 "$APK_LIST" | while IFS=, read -r pkg _; do
+while IFS=, read -r pkg _; do
     pid=$(adb -s "$DEVICE" shell pidof "$pkg" 2>/dev/null | tr -d '\r')
     if [[ -n "$pid" ]]; then
         append_csv_row "$RUNNING_FILE" "$pkg,$pid"
         status_info "$pkg is running (PID $pid)"
         ((count++))
     fi
-done
+done < <(tail -n +2 "$APK_LIST")
 
 validate_csv "$RUNNING_FILE" "Package,PID"
 status_ok "Logged $count running packages to $RUNNING_FILE"
