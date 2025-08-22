@@ -99,17 +99,32 @@ run_step "$SCRIPT_DIR/steps/generate_apk_list.sh" \
 run_step "$SCRIPT_DIR/steps/generate_apk_metadata.sh" \
     "$DEVICE_OUT/reports/apk_metadata.csv" "Package,Version,MinSDK,TargetSDK,SizeBytes,Permissions"
 
-run_step "$SCRIPT_DIR/steps/generate_apk_hashes.sh" \
-    "$DEVICE_OUT/reports/apk_hashes.csv" "Package,APK_Path,SHA256"
+if [[ "$HASH_APKS" == true ]]; then
+    run_step "$SCRIPT_DIR/steps/generate_apk_hashes.sh" \
+        "$DEVICE_OUT/reports/apk_hashes.csv" "Package,APK_Path,SHA256"
+else
+    status_info "Skipping APK hash generation (HASH_APKS=false)"
+fi
 
 run_step "$SCRIPT_DIR/steps/generate_running_apps.sh" \
     "$DEVICE_OUT/reports/running_apps.csv" "Package,PID"
 
-run_step "$SCRIPT_DIR/find_social_apps.sh" \
-    "$DEVICE_OUT/reports/social_apps_found.csv" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
+if [[ "$FILTER_SOCIAL" == true ]]; then
+    run_step "$SCRIPT_DIR/find_social_apps.sh" \
+        "$DEVICE_OUT/reports/social_apps_found.csv" "Package,APK_Path,InstallType,Detected,Family,Confidence,SHA256,SourceCommand"
+else
+    status_info "Skipping social app filtering (FILTER_SOCIAL=false)"
+fi
 
 run_step "$SCRIPT_DIR/find_motorola_apps.sh" \
     "$DEVICE_OUT/reports/motorola_apps.csv" "Package,APK_Path"
+
+if [[ "$PULL_APKS" == true ]]; then
+    status_warn "APK pulling not yet implemented (PULL_APKS=true)"
+    # Placeholder: add APK pulling steps here when implemented
+else
+    status_info "Skipping APK pulling (PULL_APKS=false)"
+fi
 
 run_step "$SCRIPT_DIR/steps/generate_manifest.sh" "" "" --log "$LOG_FILE" --summary "$SUMMARY_FILE"
 

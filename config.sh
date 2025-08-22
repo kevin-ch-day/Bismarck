@@ -30,16 +30,16 @@ FILTER_SOCIAL=true
 # Whether to compute APK hashes via adb shell (can be slow)
 HASH_APKS=true
 
-# Whether to attempt pulling APKs of interest
-PULL_APKS=true
+# Whether to attempt pulling APKs of interest (logic not yet implemented)
+PULL_APKS=false
 
-# Whether to check root status automatically
+# Whether to check root status automatically (unused placeholder)
 CHECK_ROOT=true
 
-# Whether to enable verbose adb command logging
+# Whether to enable verbose adb command logging (unused placeholder)
 VERBOSE_LOG=false
 
-# Whether to generate derived CSV views from the master inventory
+# Whether to generate derived CSV views from the master inventory (unused placeholder)
 GENERATE_DERIVED=false
 
 #####################
