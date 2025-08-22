@@ -75,6 +75,11 @@ row_count() { [[ -f "$1" ]] && echo $(( $(wc -l < "$1") -1 )) || echo 0; }
 
 TOTAL_PKGS=$(row_count "$APK_LIST")
 
+# Ensure hash file has expected structure if present
+if [[ -f "$HASH_FILE" ]]; then
+    validate_csv "$HASH_FILE" "Package,APK_Path,SHA256" || status_warn "Malformed apk_hashes.csv"
+fi
+
 # Determine column positions dynamically to avoid stale indices
 DETECTED_COL=0
 INSTALL_COL=0
@@ -82,7 +87,7 @@ if [[ -f "$SOCIAL_FILE" ]]; then
     IFS=',' read -r -a header < "$SOCIAL_FILE"
     for idx in "${!header[@]}"; do
         case "${header[$idx]}" in
-            Detected) DETECTED_COL=$((idx+1)) ;;
+            Detected)   DETECTED_COL=$((idx+1)) ;;
             InstallType) INSTALL_COL=$((idx+1)) ;;
         esac
     done

@@ -48,7 +48,7 @@ status_info "Using APK list: $APK_LIST_FILE"
 # Build hash map from apk_hashes.csv
 declare -A HASH_MAP
 if [[ -f "$HASH_FILE" ]]; then
-    while IFS=, read -r pkg sha _; do
+    while IFS=, read -r pkg apk_path sha; do
         [[ "$pkg" == "Package" ]] && continue
         HASH_MAP[$pkg]="$sha"
     done < "$HASH_FILE"
@@ -161,4 +161,3 @@ validate_csv "$SOCIAL_FILE" "Package,APK_Path,InstallType,Detected,Family,Confid
 status_info "Processed $total_scanned packages (excluding system packages)"
 
 rm -f "$TMP_FILE"
-

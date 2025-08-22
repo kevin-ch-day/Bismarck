@@ -73,7 +73,9 @@ hash_apks() {
         fi
     done < <(tail -n +2 "$DEVICE_OUT/apk_list.csv")
 
-    validate_csv "$MANIFEST" "Package,APK_Path,SHA256"
+    if command -v validate_csv >/dev/null 2>&1; then
+        validate_csv "$MANIFEST" "Package,APK_Path,SHA256"
+    fi
     log_info "Hashed $count APKs → $MANIFEST"
 }
 
